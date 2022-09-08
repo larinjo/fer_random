@@ -1,2 +1,5 @@
 # fer_random
-Collection of unrelated/unsorted code
+
+collection of unrelated/unsorted code
+
+mainly from stuff that is somewhat related to classes i take
