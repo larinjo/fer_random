@@ -1,0 +1,128 @@
+                lw      x5, GPIO(x0)            #ucitavnje adrese GPIO-a 
+                addi    sp, sp, 0x100           #inicijalizacija stoga na 0x10000
+                slli    sp, sp, 8
+
+                lw      a0, MEM(x0)             #ucitavanje broja s adrese 0x500 
+                jal     ra, PRETVORI            #skok u potprogram "PRETVORI"
+                halt                            #zaustavljanje procesora
+        
+GPIO            dw      0xffff0f00              #adresa GPIO-a
+
+
+PRETVORI        addi    sp, sp, -4              #spremanje konteksta (return adress registar
+                sb      ra, 0(sp)               #treba spremit jer se poziva potprogram LCD)
+                addi    sp, sp, -4              #također spremam a0 jer se "koristi" u glavnom programu
+                sb      a0, 0(sp)               #ostali se ne koriste ali se mogu spremit no u ovom slucaju bi samo produljili kod
+
+                addi    a1, x0, 0x0d            #slanje "carriage return" znaka kako bi se "izbrisao" trenutni ispis LCDA
+                jal     ra, LCD
+
+                addi    x6, x0, 100             #ako je uneseni broj < 100 skoci na LT100 (Less Than 100)
+                blt     a0, x6, LT100
+                addi    a1, x0, 0x43            #inace ispisi znak "C"
+                jal     ra, LCD
+                jal     x0, LF                  #skok na kraj ispisa, LF (Line Feed) labela predstavlja kraj spremanja rimskih znamenki u ulazni registar LCD-a
+
+LT100           addi    x6, x0, 90              
+                blt     a0, x6, LT90            #ako je manji od 90 onda branch na LT90
+                addi    a1, x0, 0x58            #inace ispis znaka "X"
+                jal     ra, LCD                 
+                addi    a1, x0, 0x43            #ispis znaka "C"
+                jal     ra, LCD  
+                jal     x0, NIZAZNAM            #s obzirom da ovdje znamo da je 89 < znak < 100 ispisali smo prvu znamenku i skocili na dio programa za ispis druge znamenke
+
+
+LT90            addi    x6, x0, 50              #isto kao i gore, ako je broj < 50 branch
+                blt     a0, x6, LT50
+                addi    a1, x0, 0x4c            #ispis znaka "L"
+                jal     ra, LCD
+LOOPCNT         addi    x6, x6, 10              #uvecanje "brojaca" x6 za 10 kako bi znali koliko znakova "X" ispisati
+                blt     a0, x6, JMP             #za npr 63 je sad x6 60 pa se ne brancha na JMP
+                addi    a1, x0, 0x58            #nego se ispisuje jedan znak "X"
+                jal     ra, LCD                 
+                jal     x0, LOOPCNT             #ponovo se ulazi u petlju te s obzirom da je x6 sad 70 nece se ispisivati vise znakova "X" (63 < 70)    
+JMP             jal     x0, NIZAZNAM
+
+
+LT50            addi    x6, x0, 40              #ako je znak < 40, branch na LT40
+                blt     a0, x6, LT40
+                addi    a1, x0, 0x58            #ispis znaka "X"
+                jal     ra, LCD  
+                addi    a1, x0, 0x4c            #ispis znaka "L"
+                jal     ra, LCD
+                jal     x0, NIZAZNAM 
+
+
+LT40            addi    x6, x0, 10              #ako je broj manji od 10 odmah idi na NIZAZNAM
+                blt     a0, x6, NIZAZNAM
+                addi    a0, a0, 50              #inace uvecaj za 50 kako bi se mogao koristiti petlja LOOPCNT za ispis odgovarajuceg broja znaka "X"
+                addi    x6, x6, 40              #uvecanje i brojaca za 40 (postavi se na 50 = 10 + 40)
+                jal     x0, LOOPCNT    
+
+
+NIZAZNAM        addi    x7, x0, 60              #s obzirom da se niza znamenka dobiva a0-x6 za brojeve koji koriste LOOPCNT moramo ispraviti vrijednost x6
+                bge     x6, x7, ISPRAVI         #to su brojevi za koje vrijedi x6 >= 60 (x7)
+                addi    x7, x0, 10              #ako je broj < 10 preskoci oduzimanje a0-x6 
+                blt     a0, x7, MANJI10         
+NASTAVI         sub     a0, a0, x6              #oduzimanje kako bi dobili samo nizu znamenku
+MANJI10         addi    x6, x0, 9
+                blt     a0, x6, LT9             #slican princip rada kao i za "visu" znamenku (desetice)
+                addi    a1, x0, 0x49            #ako je 9, ispis "X" pa "I" te skok na LF
+                jal     ra, LCD  
+                addi    a1, x0, 0x58
+                jal     ra, LCD
+                jal     x0, LF
+
+LT9             addi    x6, x0, 5               
+                blt     a0, x6, LT5
+                addi    a1, x0, 0x56            #ispis znaka "V" ako je u rasponu 5-8
+                jal     ra, LCD
+LOOPCNT2        addi    x6, x6, 1               #slicno kao i prije, ispisuje se znak "I" dok god je uvjet ispunjen (I, II, III) te branch na LF
+                blt     a0, x6, LF
+                addi    a1, x0, 0x49
+                jal     ra, LCD
+                jal     x0, LOOPCNT2 
+                
+LT5             addi    x6, x0, 4               
+                blt     a0, x6, LT4
+                addi    a1, x0, 0x49            #ako je 4, ispis znaka "I" pa "V", skok na LF
+                jal     ra, LCD  
+                addi    a1, x0, 0x56
+                jal     ra, LCD
+                jal     x0, LF 
+
+LT4             addi    x6, x0, 1
+                blt     a0, x6, LT1             
+                addi    a0, a0, 5               #slican princip kao gore, uvecava se broj za 5 te ide na ispis odgovaracujeg broja "I"-eva u LOOPCNT2
+                addi    x6, x6, 4               #takoder se uvecava "brojac" x6
+                jal     x0, LOOPCNT2  
+
+LT1             jal     x0, LF                  #ako je broj == 0 skoci na LF
+
+
+ISPRAVI         addi    x7, x0, 90              #ako je broj >= 90 nema potrebe za ispravljanjem
+                blt     a0, x6, JMPISP          #ako je a0 < x6 oduzmi 10 (onih viška 10 dodanih na x6 u LOOPCNT)
+                bge     x7, x6, NASTAVI         
+JMPISP          addi    x6, x6, -10
+                jal     x0, NASTAVI
+
+                
+LF              addi    a1, x0, 0x0a            #slanje "line feed" znaka kako bi se azurirao prikazni registar lcd-a
+                jal     ra, LCD    
+                
+                lw      a0, 0(sp)               #obnavljanje konteksta
+                addi    sp, sp, 4
+                lw      ra, 0(sp)
+                addi    sp, sp, 4
+                jalr    x0, 0(ra)               #povratak iz potpograma
+
+LCD             andi    a1, a1, 0x7f            #stavljanje bita 7 u 0 (impuls)
+                sb      a1, 4(x5)
+                ori     a1, a1, 0x80            #stavljanje bita 7 u 1 (impuls)
+                sb      a1, 4(x5)               
+                andi    a1, a1, 0x7f            #stavljanje bita 7 u 0 (impuls)
+                sb      a1, 4(x5)
+                jalr    x0, 0(ra)
+
+                org     0x500
+MEM             dw      3
