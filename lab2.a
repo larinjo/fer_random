@@ -1,0 +1,64 @@
+        ORG     0X0
+RESET   B       MAIN    
+
+        ORG     0X18
+        B       IRQ
+
+        ORG     0X1C
+FIQ     LDR     R1, RTC
+        
+        MOV     R10, #0
+        STR     R10, [R1, #8]
+        STR     R10, [R1, #12]
+        STR     R10, [R1, #16]
+        
+        SUBS    PC,LR,#4
+
+
+MAIN    MSR     CPSR, #0b11010010
+        MOV     R13, #0X10000
+        MSR     CPSR, #0b11010001
+        MOV     R13, #0XFC00
+        MSR     CPSR, #0b11010011
+        MOV     R13, #0XF800
+
+        LDR     R0, DMAC       
+        LDR     R1, RTC
+        MOV     R5, #5
+
+
+INIT    MOV     R2, #3
+        STR     R2, [R1,#0X4]
+        MOV     R2, #1
+        STR     R2, [R1,#0X10]
+        ;MOV     R2, #0
+        ;STR     R2, [R1,#0XC]
+
+        MOV     R2, #0X500
+        STR     R2, [R0,#0X10]
+        MOV     R2, #0X700
+        STR     R2, [R0,#0X14]
+        MOV     R2, #0X000A
+        STR     R2, [R0,#0X18]
+        MOV     R2, #0b00101100
+        STR     R2, [R0,#0X1C]
+
+        MRS     R3, CPSR
+        BIC     R3, R3,#0XC0
+        MSR     CPSR, R3
+
+        MOV     R2, #1
+        STR     R2, [R0]
+
+LOOP    CMP     R5, R0 
+        BNE     LOOP
+END     SWI     0X123456
+
+DMAC    DW 0X00FF0000
+RTC     DW 0XFFFF0E00
+
+IRQ     LDR     R0, DMAC
+        STR     R2,[R0,#4]
+        
+
+        SUBS    PC,LR,#4
